@@ -354,11 +354,17 @@ class SpaceInvaders(object):
 		return blockerGroup
 	
 	def reset_lives_sprites(self):
-		self.life1 = Life(715, 3)
-		self.life2 = Life(742, 3)
-		self.life3 = Life(769, 3)
+		self.life1 = Life(655, 3)
+		self.life2 = Life(682, 3)
+		self.life3 = Life(709, 3)
+		self.life4 = Life(736, 3)
+		self.life5 = Life(763, 3)
 		
-		if self.lives == 3:
+		if self.lives == 5:
+			self.livesGroup = sprite.Group(self.life1, self.life2, self.life3, self.life4, self.life5)
+		elif self.lives == 4:
+			self.livesGroup = sprite.Group(self.life1, self.life2, self.life3, self.life4)
+		elif self.lives == 3:
 			self.livesGroup = sprite.Group(self.life1, self.life2, self.life3)
 		elif self.lives == 2:
 			self.livesGroup = sprite.Group(self.life1, self.life2)
@@ -403,7 +409,7 @@ class SpaceInvaders(object):
 		self.enemy3Text = Text(FONT, 25, "   =  30 pts", PURPLE, 368, 370)
 		self.enemy4Text = Text(FONT, 25, "   =  ?????", RED, 368, 420)
 		self.scoreText = Text(FONT, 20, "Score", WHITE, 5, 5)
-		self.livesText = Text(FONT, 20, "Lives ", WHITE, 640, 5)
+		self.livesText = Text(FONT, 20, "Lives ", WHITE, 580, 5)
 		
 	def check_input(self):
 		self.keys = key.get_pressed()
