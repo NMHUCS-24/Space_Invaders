@@ -1,4 +1,4 @@
-# Space Invaders
+#Space Invaders
 # Created by Lee Robinson
 
 #!/usr/bin/env python
