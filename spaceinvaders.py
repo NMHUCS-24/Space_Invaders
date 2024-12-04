@@ -8,6 +8,7 @@ import sys
 import argparse
 import numpy as np
 from random import shuffle, randrange, choice, randint
+import random
 
 #           R    G    B
 WHITE 	= (255, 255, 255)
@@ -47,7 +48,10 @@ class Ship(sprite.Sprite):
 class Bullet(sprite.Sprite):
 	def __init__(self, xpos, ypos, direction, speed, filename, side):
 		sprite.Sprite.__init__(self)
-		self.image = IMAGES[filename]
+		if filename == "mystery_laser":
+			self.image = IMAGES["enemylaser"]
+		else:
+			self.image = IMAGES[filename]
 		self.rect = self.image.get_rect(topleft=(xpos, ypos))
 		self.speed = speed
 		self.direction = direction
@@ -184,50 +188,62 @@ class Mystery(sprite.Sprite):
     def __init__(self):
         sprite.Sprite.__init__(self)
         self.image = IMAGES["mystery"]
-        self.image = transform.scale(self.image, (75, 35))
-        self.rect = self.image.get_rect(topleft=(-80, 45))  # Start off-screen
-        self.row = 5
-        self.speed = 5  # Speed for manual control
-        self.direction = 1
-        self.timer = time.get_ticks()
+        self.image = transform.scale(self.image, (80, 35))
+        self.rect = self.image.get_rect(topleft=(375, 45))  # Start on-screen
+        self.speed_x = 5  # Speed for horizontal movement
+        self.speed_y = 2  # Speed for vertical movement
+        self.direction_x = random.choice([-1, 1])  # Random direction for horizontal movement
+        self.direction_y = random.choice([-1, 1])  # Random direction for vertical movement
         self.mysteryEntered = mixer.Sound('sounds/mysteryentered.wav')
         self.mysteryEntered.set_volume(0.3)
         self.playSound = True
+        self.row = 7  # Special value to represent the Mystery ship's row
+        self.bullets = sprite.Group()
+        self.x_bounds = [0, 800 - self.rect.width]
+        self.y_bounds = [0, 600 - self.rect.height]
 
     def update(self, keys, currentTime, *args):
-        # Manual movement logic
-        if keys[K_LEFT]:  # Move left
-            if self.rect.x > 0:  # Prevent moving off-screen
-                self.rect.x -= self.speed
-        if keys[K_RIGHT]:  # Move right
-            if self.rect.x < 800 - self.rect.width:  # Prevent moving off-screen
-                self.rect.x += self.speed
-        if keys[K_UP]:  # Move up
-            if self.rect.y > 0:  # Prevent moving off-screen
-                self.rect.y -= self.speed
-        if keys[K_DOWN]:  # Move down
-            if self.rect.y < 600 - self.rect.height:  # Prevent moving off-screen
-                self.rect.y += self.speed
+        # Move ship randomly across the screen
+        if random.random() < 0.05:  # 5% chance to change direction
+            self.direction_x = random.choice([-1, 1])
+            self.direction_y = random.choice([-1, 1])
+
+        self.rect.x += self.speed_x * self.direction_x
+        self.rect.y += self.speed_y * self.direction_y
+
+        if self.rect.x < self.x_bounds[0] or self.rect.x > self.x_bounds[1]:
+            self.direction_x *= -1
+        if self.rect.y < self.y_bounds[0] or self.rect.y > self.y_bounds[1]:
+            self.direction_y *= -1
+	
+        # Check if Mystery ship has reached the bottom of the screen
+        if self.rect.bottom > 560:
+            self.gameOver = True
+
+        # Shoot player ship randomly
+        if random.random() < 0.01:  # 1% chance to shoot
+            bullet = Bullet(self.rect.x + self.rect.width / 2, self.rect.y + self.rect.height, 1, 10, "mystery_laser", "center")
+            self.bullets.add(bullet)
 
         # Play sound and reset position logic
         resetTimer = False
-        if (currentTime - self.timer > 3000) and (self.rect.x < 0 or self.rect.x > 800) and self.playSound:
+        if (self.rect.x < 0 or self.rect.x > 800) and self.playSound:
             self.mysteryEntered.play()
             self.playSound = False
 
         if (self.rect.x > 830):
             self.playSound = True
-            self.direction = -1
+            self.direction_x = -1
             resetTimer = True
         if (self.rect.x < -90):
             self.playSound = True
-            self.direction = 1
+            self.direction_x = 1
             resetTimer = True
-        if (currentTime - self.timer > 3000) and resetTimer:
-            self.timer = currentTime
 
-        # Display the mystery ship on the screen
+        # Update bullets
+        self.bullets.update(keys, currentTime)
         game.screen.blit(self.image, self.rect)
+
 
 	
 class Explosion(sprite.Sprite):
@@ -313,6 +329,8 @@ class SpaceInvaders(object):
 		self.enemyPositionStart = self.enemyPositionDefault
 		# Current enemy starting position
 		self.enemyPosition = self.enemyPositionStart
+		self.allSprites = sprite.Group()
+		self.enemyBullets = sprite.Group()
 
 	def reset(self, score, lives, newGame=False):
 		self.player = Ship()
@@ -320,6 +338,8 @@ class SpaceInvaders(object):
 		self.explosionsGroup = sprite.Group()
 		self.bullets = sprite.Group()
 		self.mysteryShip = Mystery()
+		self.allSprites.add(self.mysteryShip.bullets)
+		self.enemyBullets.add(self.mysteryShip.bullets)
 		self.mysteryGroup = sprite.Group(self.mysteryShip)
 		self.enemyBullets = sprite.Group()
 		self.reset_lives(lives)
@@ -491,13 +511,13 @@ class SpaceInvaders(object):
 		self.allSprites = sprite.Group(self.player, self.enemies, self.livesGroup, self.mysteryShip)
 
 	def calculate_score(self, row): #scoring for if an enemy dies, you lose points
-		scores = {0: -30,
-				  1: -20,
-				  2: -20,
-				  3: -10,
-				  4: -10,
+		scores = {0: 10,
+				  1: 15,
+				  2: 20,
+				  3: 25,
+				  4: 30,
 				  5: -150, #choice([50, 100, 150, 300])
-				  6: 10,
+				  6: -10,
 				  7: 200
 				 }
 					  
@@ -558,10 +578,11 @@ class SpaceInvaders(object):
 		if len(self.enemies) == 1:
 			for enemy in self.enemies:
 				enemy.moveTime = 200
-				
+
 	def check_collisions(self):
 		collidedict = sprite.groupcollide(self.bullets, self.enemyBullets, True, False)
 		if collidedict:
+			print(collidedict)
 			for value in collidedict.values():
 				for currentSprite in value:
 					self.enemyBullets.remove(currentSprite)
@@ -581,7 +602,7 @@ class SpaceInvaders(object):
 					self.enemies.remove(currentSprite)
 					self.gameTimer = time.get_ticks()
 					break
-		
+
 		mysterydict = sprite.groupcollide(self.bullets, self.mysteryGroup, True, True)
 		if mysterydict:
 			for value in mysterydict.values():
@@ -598,33 +619,23 @@ class SpaceInvaders(object):
 					self.mysteryGroup.add(newShip)
 					break
 
-		bulletsdict = sprite.groupcollide(self.enemyBullets, self.playerGroup, True, False)     
-		if bulletsdict:
-			for value in bulletsdict.values():
+		mysteryBulletsdict = sprite.groupcollide(self.enemyBullets, self.playerGroup, True, True)
+		if mysteryBulletsdict:
+			for value in mysteryBulletsdict.values():
 				for playerShip in value:
-					if self.lives == 5:
-						self.lives -= 1
-						self.livesGroup.remove(self.life3)
-						self.allSprites.remove(self.life3)
-					elif self.lives == 2:
-						self.lives -= 1
-						self.livesGroup.remove(self.life2)
-						self.allSprites.remove(self.life2)
-					elif self.lives == 1:
-						self.lives -= 1
-						self.livesGroup.remove(self.life1)
-						self.allSprites.remove(self.life1)
-						self.gameOver = True
-						self.startGame = False
-
 					self.sounds["shipexplosion"].play()
 					explosion = Explosion(playerShip.rect.x, playerShip.rect.y, 0, True, False, 0)
 					self.explosionsGroup.add(explosion)
 					self.allSprites.remove(playerShip)
 					self.playerGroup.remove(playerShip)
-					self.makeNewShip = True
-					self.shipTimer = time.get_ticks()
-					self.shipAlive = False
+					self.gameOver = True
+					self.startGame = False
+
+
+		if self.mysteryGroup.sprites()[0].rect.bottom > 560:
+			self.gameOver = True
+			self.startGame = False
+
 
 		#add points if blocker is hit
 		blockerdict = sprite.groupcollide(self.bullets, self.allBlockers, True, True)
@@ -632,7 +643,7 @@ class SpaceInvaders(object):
 			for value in blockerdict.values():
 				for value in value:
 					score = self.calculate_score(6)
-		#			self.score += 10 #adds 10 point if blocker is hit
+					#self.score += 10 #adds 10 point if blocker is hit
 
 
 		if sprite.groupcollide(self.enemies, self.playerGroup, True, True):
@@ -746,5 +757,6 @@ if __name__ == '__main__':
 	#parser.add_argument('-i','--iterations',type=int, required=True)
 	#args = parser.parse_args()
 	game = SpaceInvaders()
-	game.main(3)
+	while True:
+		game.main(3)
 
