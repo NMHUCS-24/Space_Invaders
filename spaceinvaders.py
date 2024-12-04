@@ -208,6 +208,8 @@ class Mystery(sprite.Sprite):
         if keys[K_DOWN]:  # Move down
             if self.rect.y < 600 - self.rect.height:  # Prevent moving off-screen
                 self.rect.y += self.speed
+        if keys[K_SPACE]:
+        	self.shoot()
 
         # Play sound and reset position logic
         resetTimer = False
@@ -228,6 +230,13 @@ class Mystery(sprite.Sprite):
 
         # Display the mystery ship on the screen
         game.screen.blit(self.image, self.rect)
+    def shoot(self):
+    	if len(game.enemyBullets) < 5:
+    		bullet_x = self.rect.centerx - 5
+    		bullet = Bullet(bullet_x, self.rect.bottom, 1, 15, "enemylaser", "center")
+    		game.enemyBullets.add(bullet)
+    		game.allSprites.add(bullet)
+    		game.sounds["shoot"].play()
 
 	
 class Explosion(sprite.Sprite):
